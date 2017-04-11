@@ -1,0 +1,120 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+config.vm.box = "centos/7"
+config.vm.provision "file", source: "C:\\Vsimon\\test\\flink-1.1.5-bin-hadoop27-scala_2.11.tgz", destination: "/home/vagrant/flink-1.1.5-bin-hadoop27-scala_2.11.tgz"
+config.vm.provision "file", source: "C:\\Vsimon\\test\\jdk-8u121-linux-x64.rpm", destination: "/home/vagrant/jdk-8u121-linux-x64.rpm"
+config.vm.provision "file", source: "C:\\Vsimon\\test\\kafka_2.11-0.9.0.1.tgz", destination: "/home/vagrant/kafka_2.11-0.9.0.1.tgz"
+config.vm.provision "file", source: "C:\\Vsimon\\test\\zookeeper-3.4.10.tar.gz", destination: "/home/vagrant/zookeeper-3.4.10.tar.gz"
+#config.vm.provision "file", source: "C:\\Vsimon\\test\\mongodb.repo", destination: "/etc/yum.repos.d/mongodb.repo" # failed due to copy permission issue on guest
+
+config.vm.provision "shell", inline: <<-SHELL
+	sudo touch /etc/yum.repos.d/mongodb.repo
+	echo '[mongodb]' >> /etc/yum.repos.d/mongodb.repo
+	echo 'name=MongoDB Repository' >> /etc/yum.repos.d/mongodb.repo
+	echo 'baseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64/' >> /etc/yum.repos.d/mongodb.repo
+	echo 'gpgcheck=0' >> /etc/yum.repos.d/mongodb.repo
+	echo 'enabled=1' >> /etc/yum.repos.d/mongodb.repo
+	sudo chmod 707 /etc/motd
+	sudo echo "Welcome To TPM Server Built By Vagrant" >> /etc/motd
+	
+	sudo yum -y update
+	sudo yum -y install wget
+	echo "Install version jdk-8u25-linux-x64"
+	sudo rpm -ivh /home/vagrant/jdk-8u121-linux-x64.rpm
+	export JAVA_HOME=/usr/java/jdk1.8.0_121
+	export PATH=$JAVA_HOME/bin:$PATH
+		
+	echo "Going to install MongoDB"
+	sudo yum -y install mongodb-org mongodb-org-server
+	sudo sed -i 's/#bind_ip/bind_ip/g' /etc/mongod.conf
+	sudo systemctl start mongod
+	
+	echo "Installing Zookeeper"
+	sudo mkdir /usr/local/zookeeper
+	sudo tar -xvf /home/vagrant/zookeeper-3.4.10.tar.gz -C /usr/local/zookeeper
+	sudo cp -Rf /usr/local/zookeeper/zookeeper-3.4.10/* /usr/local/zookeeper
+	sudo rmdir /usr/local/zookeeper/zookeeper-3.4.10/
+	sudo mkdir /usr/local/zookeeper/zoo1/ /usr/local/zookeeper/zoo2/ mkdir /usr/local/zookeeper/zoo3/
+	sudo mkdir /usr/local/zookeeper/zoo1/data /usr/local/zookeeper/zoo2/data /usr/local/zookeeper/zoo3/data
+	sudo mkdir /usr/local/zookeeper/zoo1/conf /usr/local/zookeeper/zoo2/conf /usr/local/zookeeper/zoo3/conf
+	sudo mkdir /usr/local/zookeeper/zoo1/bin /usr/local/zookeeper/zoo2/bin /usr/local/zookeeper/zoo3/bin
+	sudo touch /usr/local/zookeeper/zoo1/data/myid /usr/local/zookeeper/zoo2/data/myid /usr/local/zookeeper/zoo3/data/myid
+	sudo touch /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg
+	sudo chmod -R 777 /usr/local/zookeeper/zoo?
+	
+	sudo echo 1 > /usr/local/zookeeper/zoo1/data/myid
+	sudo echo 2 > /usr/local/zookeeper/zoo2/data/myid
+	sudo echo 3 > /usr/local/zookeeper/zoo3/data/myid
+    
+	sudo cp -Rpf /usr/local/zookeeper/bin/* /usr/local/zookeeper/zoo1/bin/
+	sudo cp -Rpf /usr/local/zookeeper/bin/* /usr/local/zookeeper/zoo2/bin/
+	sudo cp -Rpf /usr/local/zookeeper/bin/* /usr/local/zookeeper/zoo2/bin/
+	
+    sudo chmod -R 777 /usr/local/zookeeper/zoo?
+	
+	#sudo echo "" | tee file1 file2 file3 file4 > /dev/null
+    sudo echo "tickTime=2000" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "initLimit=5" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "syncLimit=2" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "dataDir=./data" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "clientPort=2181" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg > /dev/null
+    sudo echo "clientPort=2182" | tee -a /usr/local/zookeeper/zoo2/conf/zoo.cfg > /dev/null
+    sudo echo "clientPort=2183" | tee -a /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null
+    sudo echo "server.1=localhost:2666:3666" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "server.2=localhost:2667:3667" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+    sudo echo "server.3=localhost:2668:3668" | tee -a /usr/local/zookeeper/zoo1/conf/zoo.cfg /usr/local/zookeeper/zoo2/conf/zoo.cfg /usr/local/zookeeper/zoo3/conf/zoo.cfg > /dev/null	
+
+	sudo /usr/local/zookeeper/zoo1/bin/zkServer.sh start  
+    sudo /usr/local/zookeeper/zoo2/bin/zkServer.sh start
+	sudo /usr/local/zookeeper/zoo3/bin/zkServer.sh start
+	
+	echo "Installing Apache Kafka"
+	sudo tar -xvf /home/vagrant/kafka_2.11-0.9.0.1.tgz
+	sudo chmod 777 /home/vagrant/kafka_2.11-0.9.0.1/config/server.properties
+	sudo cp -p /home/vagrant/kafka_2.11-0.9.0.1/config/server.properties /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties 
+	sudo cp -p /home/vagrant/kafka_2.11-0.9.0.1/config/server.properties /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties 
+	sudo cp -p /home/vagrant/kafka_2.11-0.9.0.1/config/server.properties /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+
+	sudo sed -i 's/broker.id=0/broker.id=1/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties
+	sudo sed -i 's/#port=9092/port=9092/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties
+	sudo sed -i 's/kafka-logs/kafka-logs-1/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties
+	sudo sed -i 's/#advertised.host.name=<hostname routable by clients>/advertised.host.name=localhost/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties
+	sudo sed -i 's/#advertised.port=<port accessible by clients>/advertised.port=9092/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties
+
+	sudo sed -i 's/broker.id=0/broker.id=2/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties
+	sudo sed -i 's/#port=9092/port=9093/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties
+	sudo sed -i 's/kafka-logs/kafka-logs-2/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties
+	sudo sed -i 's/#advertised.host.name=<hostname routable by clients>/advertised.host.name=localhost/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties
+	sudo sed -i 's/#advertised.port=<port accessible by clients>/advertised.port=9093/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server2.properties
+
+	sudo sed -i 's/broker.id=0/broker.id=3/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+	sudo sed -i 's/#port=9092/port=9094/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+	sudo sed -i 's/kafka-logs/kafka-logs-3/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+	sudo sed -i 's/#advertised.host.name=<hostname routable by clients>/advertised.host.name=localhost/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+	sudo sed -i 's/#advertised.port=<port accessible by clients>/advertised.port=9094/g' /home/vagrant/kafka_2.11-0.9.0.1/config/server3.properties
+	
+	#sudo bash /home/vagrant/kafka_2.11-0.9.0.1/bin/kafka-server-start.sh /home/vagrant/kafka_2.11-0.9.0.1/config/server1.properties &
+	#pendin
+	
+	
+	echo "Installing Flink"
+	sudo tar -xvf /home/vagrant/flink-1.1.5-bin-hadoop27-scala_2.11.tgz
+	sudo chmod 777 /home/vagrant/flink-1.1.5/conf/masters /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo mkdir /home/vagrant/flink-1.1.5/zookeeper /home/vagrant/flink-1.1.5/default_ns /home/vagrant/flink-1.1.5/recovery
+	sudo chmod 777 /home/vagrant/flink-1.1.5/zookeeper /home/vagrant/flink-1.1.5/default_ns /home/vagrant/flink-1.1.5/recovery
+	sudo echo "localhost:8082" >> /home/vagrant/flink-1.1.5/conf/masters
+	sudo sed -i 's/# recovery.mode/recovery.mode/g' /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo sed -i 's/# recovery.zookeeper.quorum/recovery.zookeeper.quorum/g' /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo sed -i 's/2181,.../2182, localhost:2182, localhost:2183/g' /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo echo "recovery.zookeeper.path.root: /home/vagrant/flink-1.1.5/zookeeper" >> /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo echo "recovery.zookeeper.path.namespace: /home/vagrant/flink-1.1.5/default_ns" >> /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+	sudo echo "recovery.zookeeper.storageDir: /home/vagrant/flink-1.1.5/recovery" >> /home/vagrant/flink-1.1.5/conf/flink-conf.yaml
+    
+    #sudo /home/vagrant/flink-1.1.5/bin/start-zookeeper-quorum.sh Error:Permission denied (publickey,gssapi-keyex,gssapi-with-mic)
+	#sudo /home/vagrant/flink-1.1.5/bin/start-cluster.sh Error: Permission denied (publickey,gssapi-keyex,gssapi-with-mic)
+
+	
+	SHELL
+ end
